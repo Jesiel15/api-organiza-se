@@ -1,0 +1,42 @@
+# Node modules
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Diretórios do sistema operacional
+.DS_Store
+Thumbs.db
+
+# Build output
+dist/
+build/
+
+# Ambiente local
+.env
+
+# Debugger e editor
+.vscode/
+.idea/
+
+# Outros arquivos temporários
+*.tmp
+*.temp
+
+# MacOS
+.AppleDouble
+.LSOverride
+
+# Test coverage
+coverage/
+
+# npm package lock
+package-lock.json
+yarn.lock
+
+# Diretórios específicos (se houver)
+out/
