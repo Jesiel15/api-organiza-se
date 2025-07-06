@@ -54,7 +54,7 @@ function authenticateToken(req, res, next) {
 
 // Rota de registro
 app.post("/api/auth/register", async (req, res) => {
-  const { email, password } = req.body;
+  const { name, email, password } = req.body;
   const userExists = users.find((u) => u.email === email);
 
   if (userExists) {
@@ -62,7 +62,7 @@ app.post("/api/auth/register", async (req, res) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  users.push({ email, password: hashedPassword });
+  users.push({ name, email, password: hashedPassword });
 
   res.status(201).json({ message: "Usuário registrado com sucesso" });
 });
@@ -90,6 +90,7 @@ app.post("/api/auth/login", async (req, res) => {
     token,
     user: {
       email: user.email,
+      name: user.name 
     },
   });
 });
