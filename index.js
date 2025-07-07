@@ -6,7 +6,9 @@ const jwt = require("jsonwebtoken");
 const cors = require("cors");
 
 const User = require("./models/User");
-const Expense = require("./models/Expense"); // importe o model Expense que você criará
+const Expense = require("./models/Expense"); 
+const Revenue = require("./models/Revenue"); 
+
 
 const app = express();
 app.use(cors());
@@ -114,6 +116,43 @@ app.post("/expenses", authenticateToken, async (req, res) => {
     res
       .status(201)
       .json({ msg: "Despesa criada com sucesso", expense: newExpense });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Nova rota protegida para listar receitas do usuário
+app.get("/revenues", authenticateToken, async (req, res) => {
+  try {
+    const revenues = await Revenue.find({ userId: req.user.id }).sort({
+      dateRevenue: -1,
+    });
+    res.json(revenues);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+app.post("/revenues", authenticateToken, async (req, res) => {
+  try {
+    const { icon, color, nameRevenue, valueRevenue, dateRevenue, anotation } =
+      req.body;
+
+    const newRevenue = new Revenue({
+      userId: req.user.id, // vem do token decodificado
+      icon,
+      color,
+      nameRevenue,
+      valueRevenue,
+      dateRevenue: new Date(dateRevenue), // converte string para Date
+      anotation,
+    });
+
+    await newRevenue.save();
+    res
+      .status(201)
+      .json({ msg: "Receita criada com sucesso", revenue: newRevenue });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
