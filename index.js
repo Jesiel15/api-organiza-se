@@ -82,15 +82,19 @@ app.post("/api/auth/login", async (req, res) => {
     return res.status(400).json({ message: "Credenciais inválidas" });
   }
 
-  const token = jwt.sign({ email: user.email }, process.env.JWT_SECRET, {
-    expiresIn: "1h",
-  });
+  const token = jwt.sign(
+    { email: user.email, name: user.name },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: "1h",
+    }
+  );
 
   res.json({
     token,
     user: {
       email: user.email,
-      name: user.name 
+      name: user.name,
     },
   });
 });
