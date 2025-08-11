@@ -143,6 +143,110 @@ app.post("/expenses", authenticateToken, async (req, res) => {
   }
 });
 
+// Rota para obter uma única despesa pelo ID do subdocumento
+app.get("/expenses/:expenseId", authenticateToken, async (req, res) => {
+  console.log("Teste GET: ", req, res);
+  try {
+    const { expenseId } = req.params;
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: "Usuário não encontrado." });
+    }
+
+    // Encontra o subdocumento de despesa pelo seu _id
+    const expense = user.expenses.id(expenseId);
+
+    if (!expense) {
+      return res.status(404).json({ msg: "Despesa não encontrada." });
+    }
+
+    res.json(expense);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Rota para atualizar uma despesa pelo ID do subdocumento
+app.put("/expenses/:expenseId", authenticateToken, async (req, res) => {
+  console.log("Teste PUT: ", req, res);
+  try {
+    const { expenseId } = req.params;
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: "Usuário não encontrado." });
+    }
+
+    // Encontra o subdocumento de despesa
+    const expense = user.expenses.id(expenseId);
+
+    if (!expense) {
+      return res.status(404).json({ msg: "Despesa não encontrada." });
+    }
+
+    // Atualiza os campos do subdocumento com os dados do corpo da requisição
+    expense.set(req.body);
+    await user.save(); // Salva o documento principal do usuário
+
+    res.json({ msg: "Despesa atualizada com sucesso", expense });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Rota para obter uma única receita pelo ID do subdocumento
+app.get("/revenues/:revenueId", authenticateToken, async (req, res) => {
+  console.log("Teste GET: ", req, res);
+  try {
+    const { revenueId } = req.params;
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: "Usuário não encontrado." });
+    }
+
+    // Encontra o subdocumento de receita pelo seu _id
+    const revenue = user.revenues.id(revenueId);
+
+    if (!revenue) {
+      return res.status(404).json({ msg: "Receita não encontrada." });
+    }
+
+    res.json(revenue);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Rota para atualizar uma receita pelo ID do subdocumento
+app.put("/revenues/:revenueId", authenticateToken, async (req, res) => {
+  console.log("Teste PUT: ", req, res);
+  try {
+    const { revenueId } = req.params;
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: "Usuário não encontrado." });
+    }
+
+    // Encontra o subdocumento de receita
+    const revenue = user.revenues.id(revenueId);
+
+    if (!revenue) {
+      return res.status(404).json({ msg: "Receita não encontrada." });
+    }
+
+    // Atualiza os campos do subdocumento com os dados do corpo da requisição
+    revenue.set(req.body);
+    await user.save(); // Salva o documento principal do usuário
+
+    res.json({ msg: "Receita atualizada com sucesso", revenue });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Nova rota protegida para listar receitas do usuário
 app.get("/revenues", authenticateToken, async (req, res) => {
   try {
