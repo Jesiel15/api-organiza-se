@@ -195,6 +195,25 @@ app.put("/expenses/:expenseId", authenticateToken, async (req, res) => {
   }
 });
 
+// Rota para deletar uma despesa pelo ID do subdocumento
+app.delete("/expenses/:expenseId", authenticateToken, async (req, res) => {
+  try {
+    const { expenseId } = req.params;
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: "Usuário não encontrado." });
+    }
+
+    user.expenses.pull(expenseId);
+    await user.save();
+
+    res.json({ msg: "Despesa excluída com sucesso." });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Rota para obter uma única receita pelo ID do subdocumento
 app.get("/revenues/:revenueId", authenticateToken, async (req, res) => {
   console.log("Teste GET: ", req, res);
@@ -260,6 +279,25 @@ app.get("/revenues", authenticateToken, async (req, res) => {
       (a, b) => b.dateRevenue.getTime() - a.dateRevenue.getTime()
     );
     res.json(sortedRevenues);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Rota para deletar uma receita pelo ID do subdocumento
+app.delete("/revenues/:revenueId", authenticateToken, async (req, res) => {
+  try {
+    const { revenueId } = req.params;
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: "Usuário não encontrado." });
+    }
+
+    user.revenues.pull(revenueId);
+    await user.save();
+
+    res.json({ msg: "Receita excluída com sucesso." });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
