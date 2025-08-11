@@ -18,12 +18,21 @@ const revenueItemSchema = new mongoose.Schema({
   anotation: { type: String },
 });
 
+const monthDataSchema = new mongoose.Schema({
+  expenses: { type: [expenseItemSchema], default: [] },
+  revenues: { type: [revenueItemSchema], default: [] },
+});
+
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  expenses: [expenseItemSchema],
-  revenues: [revenueItemSchema],
+
+  expensesRevenues: {
+    type: Map,
+    of: monthDataSchema,
+    default: {},
+  },
 });
 
 module.exports = mongoose.model("User", UserSchema);
