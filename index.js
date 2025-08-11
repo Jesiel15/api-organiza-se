@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
+const User = require("./models/User");
 
 const app = express();
 app.use(cors());
@@ -15,45 +16,6 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ Conectado ao MongoDB Atlas"))
   .catch((err) => console.error("❌ Erro ao conectar MongoDB:", err));
-
-/* ----------------- Schemas / Model (inline) ----------------- */
-const expenseItemSchema = new mongoose.Schema({
-  icon: { type: String, default: "pi pi-receipt" },
-  color: { type: String, default: "#2881e4" },
-  nameExpense: { type: String, required: true },
-  valueExpense: { type: Number, required: true },
-  dateExpense: { type: Date, required: true },
-  anotation: { type: String },
-});
-
-const revenueItemSchema = new mongoose.Schema({
-  icon: { type: String, default: "pi pi-money-bill" },
-  color: { type: String, default: "#2881e4" },
-  nameRevenue: { type: String, required: true },
-  valueRevenue: { type: Number, required: true },
-  dateRevenue: { type: Date, required: true },
-  anotation: { type: String },
-});
-
-const monthDataSchema = new mongoose.Schema({
-  expenses: { type: [expenseItemSchema], default: [] },
-  revenues: { type: [revenueItemSchema], default: [] },
-});
-
-const UserSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-
-  // Mapa chaveado por "MMYYYY"
-  expensesRevenues: {
-    type: Map,
-    of: monthDataSchema,
-    default: {},
-  },
-});
-
-const User = mongoose.model("User", UserSchema);
 
 /* ----------------- Helpers ----------------- */
 function getMonthYearKey(dateInput) {
@@ -88,7 +50,9 @@ app.post("/register", async (req, res) => {
   const { name, email, password } = req.body;
   try {
     if (!name || !email || !password)
-      return res.status(400).json({ msg: "name, email e password são obrigatórios" });
+      return res
+        .status(400)
+        .json({ msg: "name, email e password são obrigatórios" });
 
     const userExists = await User.findOne({ email });
     if (userExists) return res.status(400).json({ msg: "Email já registrado" });
@@ -103,7 +67,9 @@ app.post("/register", async (req, res) => {
     });
     await newUser.save();
 
-    res.status(201).json({ msg: "Usuário criado com sucesso", userId: newUser._id });
+    res
+      .status(201)
+      .json({ msg: "Usuário criado com sucesso", userId: newUser._id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -113,7 +79,8 @@ app.post("/register", async (req, res) => {
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
   try {
-    if (!email || !password) return res.status(400).json({ msg: "email e password são obrigatórios" });
+    if (!email || !password)
+      return res.status(400).json({ msg: "email e password são obrigatórios" });
 
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ msg: "Usuário não encontrado" });
@@ -179,7 +146,9 @@ app.get("/expenses/:monthYear", authenticateToken, async (req, res) => {
     const monthData = user.expensesRevenues.get(monthYear);
     if (!monthData) return res.json([]);
 
-    const sorted = monthData.expenses.sort((a, b) => new Date(b.dateExpense) - new Date(a.dateExpense));
+    const sorted = monthData.expenses.sort(
+      (a, b) => new Date(b.dateExpense) - new Date(a.dateExpense)
+    );
     res.json(sorted);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -190,23 +159,32 @@ app.get("/expenses/:monthYear", authenticateToken, async (req, res) => {
  * GET /expenses/:monthYear/:expenseId
  * - retorna uma despesa específica dentro de um mês
  */
-app.get("/expenses/:monthYear/:expenseId", authenticateToken, async (req, res) => {
-  try {
-    const { monthYear, expenseId } = req.params;
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ msg: "Usuário não encontrado." });
+app.get(
+  "/expenses/:monthYear/:expenseId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { monthYear, expenseId } = req.params;
+      const user = await User.findById(req.user.id);
+      if (!user)
+        return res.status(404).json({ msg: "Usuário não encontrado." });
 
-    const monthData = user.expensesRevenues.get(monthYear);
-    if (!monthData) return res.status(404).json({ msg: "Mês/ano não encontrado." });
+      const monthData = user.expensesRevenues.get(monthYear);
+      if (!monthData)
+        return res.status(404).json({ msg: "Mês/ano não encontrado." });
 
-    const expense = monthData.expenses.id(expenseId) || monthData.expenses.find(e => e._id?.toString() === expenseId);
-    if (!expense) return res.status(404).json({ msg: "Despesa não encontrada." });
+      const expense =
+        monthData.expenses.id(expenseId) ||
+        monthData.expenses.find((e) => e._id?.toString() === expenseId);
+      if (!expense)
+        return res.status(404).json({ msg: "Despesa não encontrada." });
 
-    res.json(expense);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+      res.json(expense);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
   }
-});
+);
 
 /**
  * POST /expenses
@@ -215,16 +193,21 @@ app.get("/expenses/:monthYear/:expenseId", authenticateToken, async (req, res) =
  */
 app.post("/expenses", authenticateToken, async (req, res) => {
   try {
-    const { icon, color, nameExpense, valueExpense, dateExpense, anotation } = req.body;
+    const { icon, color, nameExpense, valueExpense, dateExpense, anotation } =
+      req.body;
 
     if (!nameExpense || valueExpense == null || !dateExpense) {
-      return res.status(400).json({ msg: "nameExpense, valueExpense e dateExpense são obrigatórios" });
+      return res.status(400).json({
+        msg: "nameExpense, valueExpense e dateExpense são obrigatórios",
+      });
     }
     const dateObj = new Date(dateExpense);
-    if (isNaN(dateObj.getTime())) return res.status(400).json({ msg: "dateExpense inválida" });
+    if (isNaN(dateObj.getTime()))
+      return res.status(400).json({ msg: "dateExpense inválida" });
 
     const monthKey = getMonthYearKey(dateObj);
-    if (!monthKey) return res.status(400).json({ msg: "Formato de data inválido" });
+    if (!monthKey)
+      return res.status(400).json({ msg: "Formato de data inválido" });
 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ msg: "Usuário não encontrado." });
@@ -255,91 +238,124 @@ app.post("/expenses", authenticateToken, async (req, res) => {
  * PUT /expenses/:monthYear/:expenseId
  * - atualiza a despesa. Se a data for alterada para outro mês, move o item para o mês correto.
  */
-app.put("/expenses/:monthYear/:expenseId", authenticateToken, async (req, res) => {
-  try {
-    const { monthYear, expenseId } = req.params;
-    const updates = req.body;
+app.put(
+  "/expenses/:monthYear/:expenseId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { monthYear, expenseId } = req.params;
+      const updates = req.body;
 
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ msg: "Usuário não encontrado." });
+      const user = await User.findById(req.user.id);
+      if (!user)
+        return res.status(404).json({ msg: "Usuário não encontrado." });
 
-    const monthData = user.expensesRevenues.get(monthYear);
-    if (!monthData) return res.status(404).json({ msg: "Mês/ano não encontrado." });
+      const monthData = user.expensesRevenues.get(monthYear);
+      if (!monthData)
+        return res.status(404).json({ msg: "Mês/ano não encontrado." });
 
-    // localizar despesa
-    let expense = monthData.expenses.id(expenseId) || monthData.expenses.find(e => e._id?.toString() === expenseId);
-    if (!expense) return res.status(404).json({ msg: "Despesa não encontrada." });
+      // localizar despesa
+      let expense =
+        monthData.expenses.id(expenseId) ||
+        monthData.expenses.find((e) => e._id?.toString() === expenseId);
+      if (!expense)
+        return res.status(404).json({ msg: "Despesa não encontrada." });
 
-    // caso a data mude de mês, mover para outro mêsKey
-    if (updates.dateExpense) {
-      const newDate = new Date(updates.dateExpense);
-      if (isNaN(newDate.getTime())) return res.status(400).json({ msg: "dateExpense inválida" });
+      // caso a data mude de mês, mover para outro mêsKey
+      if (updates.dateExpense) {
+        const newDate = new Date(updates.dateExpense);
+        if (isNaN(newDate.getTime()))
+          return res.status(400).json({ msg: "dateExpense inválida" });
 
-      const newMonthKey = getMonthYearKey(newDate);
-      if (!newMonthKey) return res.status(400).json({ msg: "Formato de mês inválido" });
+        const newMonthKey = getMonthYearKey(newDate);
+        if (!newMonthKey)
+          return res.status(400).json({ msg: "Formato de mês inválido" });
 
-      // se mês mudou, remove do mês atual e adiciona no mês novo
-      if (newMonthKey !== monthYear) {
-        // remove do atual
-        const idx = monthData.expenses.findIndex(e => e._id?.toString() === expenseId);
-        if (idx !== -1) monthData.expenses.splice(idx, 1);
+        // se mês mudou, remove do mês atual e adiciona no mês novo
+        if (newMonthKey !== monthYear) {
+          // remove do atual
+          const idx = monthData.expenses.findIndex(
+            (e) => e._id?.toString() === expenseId
+          );
+          if (idx !== -1) monthData.expenses.splice(idx, 1);
 
-        // garante o mês novo e adiciona com a nova data
-        ensureMonthExistsOnUser(user, newMonthKey);
-        const movedExpense = {
-          icon: updates.icon ?? expense.icon,
-          color: updates.color ?? expense.color,
-          nameExpense: updates.nameExpense ?? expense.nameExpense,
-          valueExpense: updates.valueExpense ?? expense.valueExpense,
-          dateExpense: newDate,
-          anotation: updates.anotation ?? expense.anotation,
-        };
+          // garante o mês novo e adiciona com a nova data
+          ensureMonthExistsOnUser(user, newMonthKey);
+          const movedExpense = {
+            icon: updates.icon ?? expense.icon,
+            color: updates.color ?? expense.color,
+            nameExpense: updates.nameExpense ?? expense.nameExpense,
+            valueExpense: updates.valueExpense ?? expense.valueExpense,
+            dateExpense: newDate,
+            anotation: updates.anotation ?? expense.anotation,
+          };
 
-        user.expensesRevenues.get(newMonthKey).expenses.push(movedExpense);
-        await user.save();
+          user.expensesRevenues.get(newMonthKey).expenses.push(movedExpense);
+          await user.save();
 
-        const added = user.expensesRevenues.get(newMonthKey).expenses.at(-1);
-        return res.json({ msg: "Despesa movida e atualizada com sucesso", expense: added, monthYear: newMonthKey });
+          const added = user.expensesRevenues.get(newMonthKey).expenses.at(-1);
+          return res.json({
+            msg: "Despesa movida e atualizada com sucesso",
+            expense: added,
+            monthYear: newMonthKey,
+          });
+        }
+        // se não mudou de mês, continua e atualiza normalmente abaixo
       }
-      // se não mudou de mês, continua e atualiza normalmente abaixo
+
+      // atualiza campos (sem mudar mês)
+      expense.set(updates);
+      await user.save();
+
+      // recuperar updated (procura novamente para garantir o objeto atualizado)
+      const updatedExpense =
+        user.expensesRevenues.get(monthYear).expenses.id(expenseId) ||
+        user.expensesRevenues
+          .get(monthYear)
+          .expenses.find((e) => e._id?.toString() === expenseId);
+
+      res.json({
+        msg: "Despesa atualizada com sucesso",
+        expense: updatedExpense,
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
     }
-
-    // atualiza campos (sem mudar mês)
-    expense.set(updates);
-    await user.save();
-
-    // recuperar updated (procura novamente para garantir o objeto atualizado)
-    const updatedExpense = user.expensesRevenues.get(monthYear).expenses.id(expenseId) || user.expensesRevenues.get(monthYear).expenses.find(e => e._id?.toString() === expenseId);
-
-    res.json({ msg: "Despesa atualizada com sucesso", expense: updatedExpense });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
-});
+);
 
 /**
  * DELETE /expenses/:monthYear/:expenseId
  */
-app.delete("/expenses/:monthYear/:expenseId", authenticateToken, async (req, res) => {
-  try {
-    const { monthYear, expenseId } = req.params;
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ msg: "Usuário não encontrado." });
+app.delete(
+  "/expenses/:monthYear/:expenseId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { monthYear, expenseId } = req.params;
+      const user = await User.findById(req.user.id);
+      if (!user)
+        return res.status(404).json({ msg: "Usuário não encontrado." });
 
-    const monthData = user.expensesRevenues.get(monthYear);
-    if (!monthData) return res.status(404).json({ msg: "Mês/ano não encontrado." });
+      const monthData = user.expensesRevenues.get(monthYear);
+      if (!monthData)
+        return res.status(404).json({ msg: "Mês/ano não encontrado." });
 
-    const idx = monthData.expenses.findIndex(e => e._id?.toString() === expenseId);
-    if (idx === -1) return res.status(404).json({ msg: "Despesa não encontrada." });
+      const idx = monthData.expenses.findIndex(
+        (e) => e._id?.toString() === expenseId
+      );
+      if (idx === -1)
+        return res.status(404).json({ msg: "Despesa não encontrada." });
 
-    monthData.expenses.splice(idx, 1);
-    await user.save();
+      monthData.expenses.splice(idx, 1);
+      await user.save();
 
-    res.json({ msg: "Despesa excluída com sucesso." });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+      res.json({ msg: "Despesa excluída com sucesso." });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
   }
-});
+);
 
 /* ----------------- RECEITAS (revenues) ----------------- */
 
@@ -378,7 +394,9 @@ app.get("/revenues/:monthYear", authenticateToken, async (req, res) => {
     const monthData = user.expensesRevenues.get(monthYear);
     if (!monthData) return res.json([]);
 
-    const sorted = monthData.revenues.sort((a, b) => new Date(b.dateRevenue) - new Date(a.dateRevenue));
+    const sorted = monthData.revenues.sort(
+      (a, b) => new Date(b.dateRevenue) - new Date(a.dateRevenue)
+    );
     res.json(sorted);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -388,23 +406,32 @@ app.get("/revenues/:monthYear", authenticateToken, async (req, res) => {
 /**
  * GET /revenues/:monthYear/:revenueId
  */
-app.get("/revenues/:monthYear/:revenueId", authenticateToken, async (req, res) => {
-  try {
-    const { monthYear, revenueId } = req.params;
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ msg: "Usuário não encontrado." });
+app.get(
+  "/revenues/:monthYear/:revenueId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { monthYear, revenueId } = req.params;
+      const user = await User.findById(req.user.id);
+      if (!user)
+        return res.status(404).json({ msg: "Usuário não encontrado." });
 
-    const monthData = user.expensesRevenues.get(monthYear);
-    if (!monthData) return res.status(404).json({ msg: "Mês/ano não encontrado." });
+      const monthData = user.expensesRevenues.get(monthYear);
+      if (!monthData)
+        return res.status(404).json({ msg: "Mês/ano não encontrado." });
 
-    const revenue = monthData.revenues.id(revenueId) || monthData.revenues.find(r => r._id?.toString() === revenueId);
-    if (!revenue) return res.status(404).json({ msg: "Receita não encontrada." });
+      const revenue =
+        monthData.revenues.id(revenueId) ||
+        monthData.revenues.find((r) => r._id?.toString() === revenueId);
+      if (!revenue)
+        return res.status(404).json({ msg: "Receita não encontrada." });
 
-    res.json(revenue);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+      res.json(revenue);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
   }
-});
+);
 
 /**
  * POST /revenues
@@ -413,16 +440,21 @@ app.get("/revenues/:monthYear/:revenueId", authenticateToken, async (req, res) =
  */
 app.post("/revenues", authenticateToken, async (req, res) => {
   try {
-    const { icon, color, nameRevenue, valueRevenue, dateRevenue, anotation } = req.body;
+    const { icon, color, nameRevenue, valueRevenue, dateRevenue, anotation } =
+      req.body;
 
     if (!nameRevenue || valueRevenue == null || !dateRevenue) {
-      return res.status(400).json({ msg: "nameRevenue, valueRevenue e dateRevenue são obrigatórios" });
+      return res.status(400).json({
+        msg: "nameRevenue, valueRevenue e dateRevenue são obrigatórios",
+      });
     }
     const dateObj = new Date(dateRevenue);
-    if (isNaN(dateObj.getTime())) return res.status(400).json({ msg: "dateRevenue inválida" });
+    if (isNaN(dateObj.getTime()))
+      return res.status(400).json({ msg: "dateRevenue inválida" });
 
     const monthKey = getMonthYearKey(dateObj);
-    if (!monthKey) return res.status(400).json({ msg: "Formato de data inválido" });
+    if (!monthKey)
+      return res.status(400).json({ msg: "Formato de data inválido" });
 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ msg: "Usuário não encontrado." });
@@ -452,84 +484,117 @@ app.post("/revenues", authenticateToken, async (req, res) => {
  * PUT /revenues/:monthYear/:revenueId
  * - atualiza a receita. Se a data for alterada para outro mês, move o item para o mês correto.
  */
-app.put("/revenues/:monthYear/:revenueId", authenticateToken, async (req, res) => {
-  try {
-    const { monthYear, revenueId } = req.params;
-    const updates = req.body;
+app.put(
+  "/revenues/:monthYear/:revenueId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { monthYear, revenueId } = req.params;
+      const updates = req.body;
 
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ msg: "Usuário não encontrado." });
+      const user = await User.findById(req.user.id);
+      if (!user)
+        return res.status(404).json({ msg: "Usuário não encontrado." });
 
-    const monthData = user.expensesRevenues.get(monthYear);
-    if (!monthData) return res.status(404).json({ msg: "Mês/ano não encontrado." });
+      const monthData = user.expensesRevenues.get(monthYear);
+      if (!monthData)
+        return res.status(404).json({ msg: "Mês/ano não encontrado." });
 
-    let revenue = monthData.revenues.id(revenueId) || monthData.revenues.find(r => r._id?.toString() === revenueId);
-    if (!revenue) return res.status(404).json({ msg: "Receita não encontrada." });
+      let revenue =
+        monthData.revenues.id(revenueId) ||
+        monthData.revenues.find((r) => r._id?.toString() === revenueId);
+      if (!revenue)
+        return res.status(404).json({ msg: "Receita não encontrada." });
 
-    if (updates.dateRevenue) {
-      const newDate = new Date(updates.dateRevenue);
-      if (isNaN(newDate.getTime())) return res.status(400).json({ msg: "dateRevenue inválida" });
+      if (updates.dateRevenue) {
+        const newDate = new Date(updates.dateRevenue);
+        if (isNaN(newDate.getTime()))
+          return res.status(400).json({ msg: "dateRevenue inválida" });
 
-      const newMonthKey = getMonthYearKey(newDate);
-      if (!newMonthKey) return res.status(400).json({ msg: "Formato de mês inválido" });
+        const newMonthKey = getMonthYearKey(newDate);
+        if (!newMonthKey)
+          return res.status(400).json({ msg: "Formato de mês inválido" });
 
-      if (newMonthKey !== monthYear) {
-        const idx = monthData.revenues.findIndex(r => r._id?.toString() === revenueId);
-        if (idx !== -1) monthData.revenues.splice(idx, 1);
+        if (newMonthKey !== monthYear) {
+          const idx = monthData.revenues.findIndex(
+            (r) => r._id?.toString() === revenueId
+          );
+          if (idx !== -1) monthData.revenues.splice(idx, 1);
 
-        ensureMonthExistsOnUser(user, newMonthKey);
+          ensureMonthExistsOnUser(user, newMonthKey);
 
-        const movedRevenue = {
-          icon: updates.icon ?? revenue.icon,
-          color: updates.color ?? revenue.color,
-          nameRevenue: updates.nameRevenue ?? revenue.nameRevenue,
-          valueRevenue: updates.valueRevenue ?? revenue.valueRevenue,
-          dateRevenue: newDate,
-          anotation: updates.anotation ?? revenue.anotation,
-        };
+          const movedRevenue = {
+            icon: updates.icon ?? revenue.icon,
+            color: updates.color ?? revenue.color,
+            nameRevenue: updates.nameRevenue ?? revenue.nameRevenue,
+            valueRevenue: updates.valueRevenue ?? revenue.valueRevenue,
+            dateRevenue: newDate,
+            anotation: updates.anotation ?? revenue.anotation,
+          };
 
-        user.expensesRevenues.get(newMonthKey).revenues.push(movedRevenue);
-        await user.save();
+          user.expensesRevenues.get(newMonthKey).revenues.push(movedRevenue);
+          await user.save();
 
-        const added = user.expensesRevenues.get(newMonthKey).revenues.at(-1);
-        return res.json({ msg: "Receita movida e atualizada com sucesso", revenue: added, monthYear: newMonthKey });
+          const added = user.expensesRevenues.get(newMonthKey).revenues.at(-1);
+          return res.json({
+            msg: "Receita movida e atualizada com sucesso",
+            revenue: added,
+            monthYear: newMonthKey,
+          });
+        }
       }
+
+      revenue.set(updates);
+      await user.save();
+
+      const updatedRevenue =
+        user.expensesRevenues.get(monthYear).revenues.id(revenueId) ||
+        user.expensesRevenues
+          .get(monthYear)
+          .revenues.find((r) => r._id?.toString() === revenueId);
+
+      res.json({
+        msg: "Receita atualizada com sucesso",
+        revenue: updatedRevenue,
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
     }
-
-    revenue.set(updates);
-    await user.save();
-
-    const updatedRevenue = user.expensesRevenues.get(monthYear).revenues.id(revenueId) || user.expensesRevenues.get(monthYear).revenues.find(r => r._id?.toString() === revenueId);
-
-    res.json({ msg: "Receita atualizada com sucesso", revenue: updatedRevenue });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
-});
+);
 
 /**
  * DELETE /revenues/:monthYear/:revenueId
  */
-app.delete("/revenues/:monthYear/:revenueId", authenticateToken, async (req, res) => {
-  try {
-    const { monthYear, revenueId } = req.params;
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ msg: "Usuário não encontrado." });
+app.delete(
+  "/revenues/:monthYear/:revenueId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { monthYear, revenueId } = req.params;
+      const user = await User.findById(req.user.id);
+      if (!user)
+        return res.status(404).json({ msg: "Usuário não encontrado." });
 
-    const monthData = user.expensesRevenues.get(monthYear);
-    if (!monthData) return res.status(404).json({ msg: "Mês/ano não encontrado." });
+      const monthData = user.expensesRevenues.get(monthYear);
+      if (!monthData)
+        return res.status(404).json({ msg: "Mês/ano não encontrado." });
 
-    const idx = monthData.revenues.findIndex(r => r._id?.toString() === revenueId);
-    if (idx === -1) return res.status(404).json({ msg: "Receita não encontrada." });
+      const idx = monthData.revenues.findIndex(
+        (r) => r._id?.toString() === revenueId
+      );
+      if (idx === -1)
+        return res.status(404).json({ msg: "Receita não encontrada." });
 
-    monthData.revenues.splice(idx, 1);
-    await user.save();
+      monthData.revenues.splice(idx, 1);
+      await user.save();
 
-    res.json({ msg: "Receita excluída com sucesso." });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+      res.json({ msg: "Receita excluída com sucesso." });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
   }
-});
+);
 
 /* ----------------- Servidor ----------------- */
 const PORT = process.env.PORT || 3000;
