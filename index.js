@@ -63,13 +63,27 @@ app.post("/register", async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      expensesRevenues: {}, // começa vazio
+      expensesRevenues: {},
     });
     await newUser.save();
 
-    res
-      .status(201)
-      .json({ msg: "Usuário criado com sucesso", userId: newUser._id });
+    // Geração do token após o registro ---
+    const token = jwt.sign(
+      {
+        id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" } // Token expira em 1 dia
+    );
+
+    // Retorna o token e os dados do novo usuário ---
+    res.status(201).json({
+      msg: "Usuário criado com sucesso",
+      token,
+      user: { id: newUser._id, name: newUser.name, email: newUser.email },
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
