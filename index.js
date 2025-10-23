@@ -175,47 +175,44 @@ app.put("/user/password", authenticateToken, async (req, res) => {
 app.patch("/user/emailname", authenticateToken, async (req, res) => {
   try {
     const { name, email } = req.body;
-
     const user = await User.findById(req.user.id);
+
     if (!user) {
       return res.status(404).json({ msg: "Usuário não encontrado." });
     }
 
     const updates = {};
 
-    // 1. Prepara a atualização do Nome
     if (name && name !== user.name) {
       updates.name = name;
     }
 
-    // 2. Prepara a atualização do Email
     if (email && email !== user.email) {
-      // 2a. Verifica se o novo email já está em uso
       const emailExists = await User.findOne({ email });
       if (emailExists) {
-        return res
-          .status(400)
-          .json({ msg: "Este email já está registrado por outro usuário." });
+        return res.status(400).json({ msg: "Email já em uso." });
       }
-
       updates.email = email;
     }
 
-    // 3. Verifica se há algo para atualizar
     if (Object.keys(updates).length === 0) {
-      return res.status(400).json({
-        msg: "Nenhum nome ou email válido fornecido para atualização.",
-      });
+      return res.status(400).json({ msg: "Nada para atualizar." });
     }
 
-    // 4. Aplica as atualizações e salva
     Object.assign(user, updates);
     await user.save();
 
-    // 5. Retorna o usuário atualizado (sem a senha)
+    // 🔑 Gera novo token atualizado
+    const newToken = jwt.sign(
+      { id: user._id, name: user.name, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "8h" }
+    );
+
     res.json({
       msg: "Perfil atualizado com sucesso",
       user: { id: user._id, name: user.name, email: user.email },
+      token: newToken,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
