@@ -121,6 +121,107 @@ app.post("/login", async (req, res) => {
   }
 });
 
+// Rota para atualizar apenas a senha
+app.put("/user/password", authenticateToken, async (req, res) => {
+  try {
+    // Recebemos apenas os campos de senha
+    const { password, newPassword } = req.body; // 1. Localiza o usuário
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: "Usuário não encontrado." });
+    } // 2. Validações básicas (apenas para senha)
+
+    if (!password) {
+      return res
+        .status(400)
+        .json({ msg: "A senha atual é obrigatória para qualquer alteração." });
+    }
+
+    if (!newPassword) {
+      return res.status(400).json({ msg: "A nova senha é obrigatória." });
+    } // 3. Verifica a senha atual
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ msg: "Senha atual incorreta." });
+    } // 4. Prepara a atualização da senha
+
+    const updates = {}; // Verifica se a nova senha é diferente da senha atual
+
+    const isSameAsCurrent = await bcrypt.compare(newPassword, user.password);
+    if (isSameAsCurrent) {
+      return res
+        .status(400)
+        .json({ msg: "A nova senha deve ser diferente da senha atual." });
+    } // Hash da nova senha
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    updates.password = hashedPassword; // 5. Aplica as atualizações e salva
+
+    Object.assign(user, updates);
+    await user.save(); // 6. Retorna uma mensagem de sucesso
+
+    res.json({
+      msg: "Senha atualizada com sucesso",
+      user: { id: user._id, name: user.name, email: user.email },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Edição de Perfil (Nome e/ou Email) - SEM REQUERER SENHA
+app.patch("/user/emailname", authenticateToken, async (req, res) => {
+  try {
+    const { name, email } = req.body;
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: "Usuário não encontrado." });
+    }
+
+    const updates = {};
+
+    // 1. Prepara a atualização do Nome
+    if (name && name !== user.name) {
+      updates.name = name;
+    }
+
+    // 2. Prepara a atualização do Email
+    if (email && email !== user.email) {
+      // 2a. Verifica se o novo email já está em uso
+      const emailExists = await User.findOne({ email });
+      if (emailExists) {
+        return res
+          .status(400)
+          .json({ msg: "Este email já está registrado por outro usuário." });
+      }
+
+      updates.email = email;
+    }
+
+    // 3. Verifica se há algo para atualizar
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        msg: "Nenhum nome ou email válido fornecido para atualização.",
+      });
+    }
+
+    // 4. Aplica as atualizações e salva
+    Object.assign(user, updates);
+    await user.save();
+
+    // 5. Retorna o usuário atualizado (sem a senha)
+    res.json({
+      msg: "Perfil atualizado com sucesso",
+      user: { id: user._id, name: user.name, email: user.email },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /* ----------------- DESPESAS (expenses) ----------------- */
 
 /**
