@@ -710,6 +710,7 @@ app.delete(
 
 /* ----------------- SUPORTE (envio de email) ----------------- */
 const nodemailer = require("nodemailer");
+const lastSupportEmailSent = new Map();
 
 app.post("/support/email", authenticateToken, async (req, res) => {
   try {
@@ -728,6 +729,45 @@ app.post("/support/email", authenticateToken, async (req, res) => {
         .json({ msg: "E-mail não corresponde ao usuário autenticado." });
     }
 
+    // 🕒 Verifica limite de tempo (2 horas)
+    const userId = req.user.id;
+    const now = Date.now();
+    const lastSent = lastSupportEmailSent.get(userId);
+
+    // Define o limite de 2 horas em milissegundos
+    const timeLimit = 2 * 60 * 60 * 1000;
+
+    if (lastSent && now - lastSent < timeLimit) {
+      // 🚀 CÁLCULO PARA MOSTRAR HORAS E MINUTOS RESTANTES 🚀
+      const remainingMs = timeLimit - (now - lastSent);
+
+      const remainingHours = Math.floor(remainingMs / (60 * 60 * 1000));
+      const remainingMinutes = Math.ceil(
+        (remainingMs % (60 * 60 * 1000)) / 60000
+      ); // O resto em minutos
+
+      let timeMessage = "";
+
+      if (remainingHours > 0) {
+        timeMessage += `${remainingHours} hora${remainingHours > 1 ? "s" : ""}`;
+        if (remainingMinutes > 0) {
+          timeMessage += " e ";
+        }
+      }
+
+      if (remainingMinutes > 0) {
+        timeMessage += `${remainingMinutes} minuto${
+          remainingMinutes > 1 ? "s" : ""
+        }`;
+      }
+      // --------------------------------------------------------
+
+      return res.status(429).json({
+        msg: `Você já enviou uma mensagem recentemente. Tente novamente em ${timeMessage}.`,
+      });
+    }
+
+    // 🚀 Configura e envia o email
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -750,6 +790,9 @@ app.post("/support/email", authenticateToken, async (req, res) => {
     };
 
     await transporter.sendMail(mailOptions);
+
+    // 🕓 Atualiza horário do último envio
+    lastSupportEmailSent.set(userId, now);
 
     res.status(200).json({ msg: "Mensagem enviada com sucesso!" });
   } catch (error) {
