@@ -711,7 +711,7 @@ app.delete(
 /* ----------------- SUPORTE (envio de email) ----------------- */
 const nodemailer = require("nodemailer");
 
-app.post("/support/email", async (req, res) => {
+app.post("/support/email", authenticateToken, async (req, res) => {
   try {
     const { name, email, message } = req.body;
 
@@ -721,31 +721,34 @@ app.post("/support/email", async (req, res) => {
         .json({ msg: "Nome, e-mail e mensagem são obrigatórios." });
     }
 
-    // 🔐 Cria o transporter do Gmail
+    // 🔐 Garante que o usuário logado é o mesmo que está enviando
+    if (req.user.email !== email) {
+      return res
+        .status(403)
+        .json({ msg: "E-mail não corresponde ao usuário autenticado." });
+    }
+
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
         user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_PASS, // use App Password (não sua senha normal)
+        pass: process.env.GMAIL_PASS,
       },
     });
 
-    // 📧 Define o conteúdo do e-mail
     const mailOptions = {
       from: `"${name}" <${email}>`,
-      to: process.env.GMAIL_USER, // vai para o seu Gmail
+      to: process.env.GMAIL_USER,
       subject: `📬 Suporte - Mensagem de ${name}`,
-      text: message,
       html: `
         <h2>Nova mensagem de suporte</h2>
-        <p><strong>Nome:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Mensagem:</strong></p>
+        <p><strong>Usuário autenticado:</strong> ${req.user.name}</p>
+        <p><strong>Email autenticado:</strong> ${req.user.email}</p>
+        <p><strong>Mensagem enviada:</strong></p>
         <p>${message}</p>
       `,
     };
 
-    // 🚀 Envia o email
     await transporter.sendMail(mailOptions);
 
     res.status(200).json({ msg: "Mensagem enviada com sucesso!" });
