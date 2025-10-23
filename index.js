@@ -708,6 +708,55 @@ app.delete(
   }
 );
 
+/* ----------------- SUPORTE (envio de email) ----------------- */
+const nodemailer = require("nodemailer");
+
+app.post("/support/email", async (req, res) => {
+  try {
+    const { name, email, message } = req.body;
+
+    if (!name || !email || !message) {
+      return res
+        .status(400)
+        .json({ msg: "Nome, e-mail e mensagem são obrigatórios." });
+    }
+
+    // 🔐 Cria o transporter do Gmail
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_PASS, // use App Password (não sua senha normal)
+      },
+    });
+
+    // 📧 Define o conteúdo do e-mail
+    const mailOptions = {
+      from: `"${name}" <${email}>`,
+      to: process.env.GMAIL_USER, // vai para o seu Gmail
+      subject: `📬 Suporte - Mensagem de ${name}`,
+      text: message,
+      html: `
+        <h2>Nova mensagem de suporte</h2>
+        <p><strong>Nome:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Mensagem:</strong></p>
+        <p>${message}</p>
+      `,
+    };
+
+    // 🚀 Envia o email
+    await transporter.sendMail(mailOptions);
+
+    res.status(200).json({ msg: "Mensagem enviada com sucesso!" });
+  } catch (error) {
+    console.error("Erro ao enviar e-mail:", error);
+    res
+      .status(500)
+      .json({ msg: "Erro ao enviar o e-mail", error: error.message });
+  }
+});
+
 /* ----------------- Servidor ----------------- */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Servidor rodando na porta ${PORT}`));
